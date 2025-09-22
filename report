@@ -1,0 +1,950 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>Jewar Reports</title>
+    
+    <!-- PWA Meta Tags -->
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0d1117">
+    <link rel="manifest" href="manifest.json">
+    <link rel="apple-touch-icon" href="icon-192.png">
+
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    
+    <!-- Google API Scripts -->
+    <script async defer src="https://apis.google.com/js/api.js" onload="gapiLoaded()"></script>
+    <script async defer src="https://accounts.google.com/gsi/client" onload="gisLoaded()"></script>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js" crossorigin="anonymous" referrerpolicy="no-referrer"></script>
+    <style>
+        body {
+            font-family: 'Cairo', sans-serif;
+            background-color: #0d1117;
+            background-image: radial-gradient(circle at top, rgba(35,42,56,0.8) 0%, #0d1117 40%);
+            color: #c9d1d9;
+        }
+        #splash-screen {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .loader-container {
+            text-align: center;
+            animation: fadeIn 1s ease-in-out;
+        }
+        .logo {
+            font-size: 3rem;
+            font-weight: 700;
+            color: #58a6ff;
+            text-shadow: 0 0 15px rgba(88, 166, 255, 0.4);
+        }
+        .spinner {
+            border: 4px solid rgba(255, 255, 255, 0.2);
+            border-left-color: #58a6ff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 2rem auto;
+        }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        .card {
+            background-color: rgba(22, 27, 34, 0.8);
+            backdrop-filter: blur(10px);
+            border: 1px solid #30363d;
+            border-radius: 12px;
+            padding: 1rem; /* Reduced padding for smaller screens */
+            margin-bottom: 1rem;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.3s ease-in-out;
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 0.5s forwards;
+        }
+        @media (min-width: 768px) { .card { padding: 24px; margin-bottom: 24px; } }
+        @keyframes fadeIn { to { opacity: 1; transform: translateY(0); } }
+        .card::before {
+            content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+            background: linear-gradient(90deg, transparent, #30c2ff, transparent);
+            animation: glow-line 4s linear infinite;
+        }
+        @keyframes glow-line { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+        .card-review::before { background: linear-gradient(90deg, transparent, #f97316, transparent); }
+        .card-completed::before { background: linear-gradient(90deg, transparent, #22c55e, transparent); }
+        .card-workforce::before { background: linear-gradient(90deg, transparent, #a855f7, transparent); }
+        .card-equipment::before { background: linear-gradient(90deg, transparent, #3b82f6, transparent); }
+        .card-plan::before { background: linear-gradient(90deg, transparent, #14b8a6, transparent); }
+        .card-title { display: flex; align-items: center; gap: 12px; font-size: 1.25rem; font-weight: 700; margin-bottom: 20px; color: #58a6ff; }
+        @media (min-width: 768px) { .card-title { font-size: 1.5rem; } }
+        .card-review .card-title { color: #f97316; }
+        .card-completed .card-title { color: #22c55e; }
+        .card-workforce .card-title { color: #a855f7; }
+        .card-equipment .card-title { color: #3b82f6; }
+        .card-plan .card-title { color: #14b8a6; }
+        .form-input, .form-select { background-color: #0d1117; border: 1px solid #30363d; border-radius: 8px; padding: 10px 12px; color: #c9d1d9; width: 100%; transition: border-color 0.2s, box-shadow 0.2s; }
+        html[dir="ltr"] .form-input, html[dir="ltr"] .form-select { text-align: left; }
+        html[dir="rtl"] .form-input, html[dir="rtl"] .form-select { text-align: right; }
+        .form-input:focus, .form-select:focus { outline: none; border-color: #58a6ff; box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2); }
+        .form-checkbox { appearance: none; background-color: #0d1117; border: 1px solid #30363d; border-radius: 4px; width: 1.25rem; height: 1.25rem; cursor: pointer; position: relative; }
+        .form-checkbox:checked { background-color: #58a6ff; border-color: #58a6ff; }
+        .form-checkbox:checked::after { content: '\f00c'; font-family: 'Font Awesome 6 Free'; font-weight: 900; color: #0d1117; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); font-size: 0.8rem; }
+        .btn { border-radius: 8px; padding: 12px 24px; font-weight: 700; transition: all 0.2s ease-in-out; cursor: pointer; border: none; font-size: 1.1rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+        .btn-delete { background-color: #da3633; color: white; padding: 6px 10px; font-size: 0.8rem; }
+        .btn-delete:hover { background-color: #f85149; }
+        .btn-export { background: linear-gradient(90deg, #58a6ff, #30c2ff); color: #0d1117; }
+        .btn-export:hover { transform: scale(1.02); }
+        .btn-save-data { background-color: #238636; color: white; }
+        .btn-save-data:hover { background-color: #2ea043; }
+        .btn-upload { background-color: #f59e0b; color: #1f2937; }
+        .btn-upload:hover { background-color: #facc15; }
+        .btn-upload:disabled { background-color: #4b5563; cursor: not-allowed; }
+        .btn-review { background-color: #ea580c; color: white; }
+        .btn-review:hover { background-color: #f97316; }
+        .btn-completed { background-color: #16a34a; color: white; }
+        .btn-completed:hover { background-color: #22c55e; }
+        .btn-workforce { background-color: #9333ea; color: white; }
+        .btn-workforce:hover { background-color: #a855f7; }
+        .btn-equipment { background-color: #2563eb; color: white; }
+        .btn-equipment:hover { background-color: #3b82f6; }
+        .btn-plan { background-color: #0d9488; color: white; }
+        .btn-plan:hover { background-color: #14b8a6; }
+        .btn-add { padding: 10px 20px; font-weight: 600; }
+        .new-row { animation: slideDownFadeIn 0.5s ease-out; }
+        @keyframes slideDownFadeIn { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes slideUpFadeOut { from { opacity: 1; transform: translateY(0); } to { opacity: 0; transform: translateY(-10px); } }
+        #message-box { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background-color: #2ea043; color: white; padding: 15px 30px; border-radius: 8px; z-index: 1000; opacity: 0; transition: opacity 0.5s, transform 0.5s; pointer-events: none; }
+        #message-box.show { opacity: 1; transform: translate(-50%, -10px); }
+        .nav-btn { background-color: #58a6ff; color: #0d1117; width: 50px; height: 50px; border-radius: 50%; box-shadow: 0 4px 15px rgba(0, 0, 0, 0.4); transition: all 0.2s ease-in-out; }
+        .nav-btn:hover { transform: scale(1.1); background-color: #30c2ff; }
+        .nav-btn:disabled { background-color: #30363d; cursor: not-allowed; transform: scale(1); }
+        .main-header { text-shadow: 0 0 15px rgba(88, 166, 255, 0.4); }
+        .auth-container { position: fixed; top: 20px; left: 20px; z-index: 100; }
+        html[dir="rtl"] .auth-container { left: auto; right: 20px; }
+        .auth-btn { background-color: #1f2937; color: white; border: 1px solid #4b5563; padding: 8px 16px; border-radius: 20px; }
+        .user-profile { display: flex; align-items: center; gap: 10px; background-color: #1f2937; padding: 5px 10px 5px 5px; border-radius: 25px; border: 1px solid #4b5563; }
+        .user-profile img { width: 30px; height: 30px; border-radius: 50%; }
+        .user-profile span { font-weight: 600; }
+        #lang-toggle {
+            position: fixed;
+            top: 20px;
+            z-index: 100;
+            background-color: rgba(30, 36, 43, 0.8);
+            backdrop-filter: blur(5px);
+            border: 1px solid #30363d;
+            color: #c9d1d9;
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            font-size: 1.2rem;
+        }
+        #lang-toggle:hover{
+            border-color: #58a6ff;
+        }
+        html[dir="rtl"] #lang-toggle {
+            left: 20px;
+        }
+        html[dir="ltr"] #lang-toggle {
+            right: 20px;
+        }
+
+    </style>
+</head>
+<body class="p-2 md:p-8">
+
+    <div id="splash-screen">
+        <div class="loader-container">
+            <div class="logo">Jewar Reports</div>
+            <div class="spinner"></div>
+            <p>جاري تحميل التطبيق...</p>
+        </div>
+    </div>
+
+    <div id="app-container" style="display: none;">
+        <div class="auth-container">
+            <button id="auth-btn" class="auth-btn"><i class="fab fa-google mr-2"></i> <span data-lang-key="signIn">Sign in with Google</span></button>
+            <div id="user-info" class="user-profile" style="display: none;">
+                <img id="user-pic" src="" alt="User"/>
+                <span id="user-name"></span>
+                <button id="signout-btn" class="text-xs text-red-400 hover:underline" data-lang-key="signOut">Sign Out</button>
+            </div>
+        </div>
+        <button id="lang-toggle">
+            <i class="fas fa-globe"></i>
+        </button>
+        
+        <div id="report-content" class="max-w-7xl mx-auto pt-16">
+            <header class="text-center mb-8">
+                <h1 class="text-3xl md:text-4xl font-bold text-white main-header" data-lang-key="mainTitle">التقرير اليومي للمشروع</h1>
+                <p class="text-base md:text-lg text-gray-400 mt-2" data-lang-key="mainSubtitle">واجهة تفاعلية لإدارة التقارير اليومية</p>
+            </header>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div class="lg:col-span-2">
+                    <div class="card" style="animation-delay: 0.1s;">
+                        <h2 class="card-title"><i class="fas fa-clipboard-list"></i> <span data-lang-key="basicInfoTitle">المعلومات الأساسية</span></h2>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block mb-2 font-semibold" data-lang-key="projectNameLabel">اسم المشروع *</label>
+                                <input type="text" id="project-name" class="form-input" value="FCC">
+                            </div>
+                            <div>
+                                <label class="block mb-2 font-semibold" data-lang-key="reportDateLabel">بحث حسب التاريخ *</label>
+                                <div class="relative">
+                                    <input type="date" id="report-date" class="form-input">
+                                    <i class="fas fa-search absolute top-1/2 right-3 transform -translate-y-1/2 text-gray-400 pointer-events-none"></i>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block mb-2 font-semibold" data-lang-key="weatherLabel">الحالة الجوية *</label>
+                                <select id="weather-status" class="form-select">
+                                    <option value="Sunny" data-lang-key="weatherSunny">مشمس</option>
+                                    <option value="Partly Cloudy" data-lang-key="weatherPartlyCloudy">غائم جزئياً</option>
+                                    <option value="Cloudy" data-lang-key="weatherCloudy">غائم</option>
+                                    <option value="Rainy" data-lang-key="weatherRainy">ممطر</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="lg:col-span-1">
+                    <div class="card" style="animation-delay: 0.4s;">
+                        <h2 class="card-title"><i class="fas fa-chart-line"></i> <span data-lang-key="progressTitle">ملخص الإنجاز</span></h2>
+                        <div class="space-y-6">
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="font-semibold" data-lang-key="plannedProgressLabel">النسبة المخططة</label>
+                                    <span id="planned-progress-value" class="font-bold text-blue-400">0%</span>
+                                </div>
+                                <input type="range" id="planned-progress" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" min="0" max="100" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="font-semibold" data-lang-key="actualProgressLabel">النسبة الفعلية</label>
+                                    <span id="actual-progress-value" class="font-bold text-green-400">0%</span>
+                                </div>
+                                <input type="range" id="actual-progress" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" min="0" max="100" value="0">
+                            </div>
+                            <div>
+                                <div class="flex justify-between items-center mb-1">
+                                    <label class="font-semibold" data-lang-key="qualityProgressLabel">نسبة الجودة</label>
+                                    <span id="quality-progress-value" class="font-bold text-yellow-400">0%</span>
+                                </div>
+                                <input type="range" id="quality-progress" class="w-full h-2 bg-gray-700 rounded-lg appearance-none cursor-pointer" min="0" max="100" value="0">
+                            </div>
+                            <hr class="border-gray-600">
+                            <div class="flex justify-between items-center p-3 bg-gray-900 rounded-lg">
+                                <span class="font-bold text-lg" data-lang-key="deviationLabel">الانحراف عن المخطط:</span>
+                                <span id="deviation" class="font-bold text-2xl text-red-400">0%</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card card-review" style="animation-delay: 0.2s;">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="card-title mb-0"><i class="fas fa-history"></i> <span data-lang-key="prevDayTitle">مراجعة أعمال اليوم السابق</span></h2>
+                    <span id="previous-day-counter" class="font-bold text-gray-400"></span>
+                </div>
+                <div id="previous-day-tasks" class="space-y-3"></div>
+            </div>
+
+            <div class="card card-completed" style="animation-delay: 0.3s;">
+                <div class="flex justify-between items-center">
+                    <h2 class="card-title"><i class="fas fa-check-circle"></i> <span data-lang-key="completedWorkTitle">الأعمال المنجزة</span></h2>
+                    <button id="add-completed-work" class="btn btn-add btn-completed"><i class="fas fa-plus mr-2"></i> <span data-lang-key="addBtn">إضافة</span></button>
+                </div>
+                <div id="completed-work-list" class="space-y-4 mt-4"></div>
+            </div>
+            
+            <div class="card card-workforce" style="animation-delay: 0.5s;">
+                <div class="flex justify-between items-center">
+                    <h2 class="card-title"><i class="fas fa-users"></i> <span data-lang-key="workforceTitle">القوى العاملة</span></h2>
+                    <button id="add-workforce" class="btn btn-add btn-workforce"><i class="fas fa-plus mr-2"></i> <span data-lang-key="addBtn">إضافة</span></button>
+                </div>
+                <div id="workforce-list" class="space-y-4 mt-4"></div>
+            </div>
+
+            <div class="card card-equipment" style="animation-delay: 0.6s;">
+                <div class="flex justify-between items-center">
+                    <h2 class="card-title"><i class="fas fa-tools"></i> <span data-lang-key="equipmentTitle">المعدات</span></h2>
+                    <button id="add-equipment" class="btn btn-add btn-equipment"><i class="fas fa-plus mr-2"></i> <span data-lang-key="addBtn">إضافة</span></button>
+                </div>
+                <div id="equipment-list" class="space-y-4 mt-4"></div>
+            </div>
+
+            <div class="card card-plan" style="animation-delay: 0.7s;">
+                <div class="flex justify-between items-center">
+                    <h2 class="card-title"><i class="fas fa-calendar-alt"></i> <span data-lang-key="planTitle">خطة الغد</span></h2>
+                    <button id="add-plan" class="btn btn-add btn-plan"><i class="fas fa-plus mr-2"></i> <span data-lang-key="addBtn">إضافة</span></button>
+                </div>
+                <div id="plan-list" class="space-y-4 mt-4"></div>
+            </div>
+
+            <div class="card" style="animation-delay: 0.8s;">
+                <h2 class="card-title"><i class="fas fa-user-edit"></i> <span data-lang-key="preparerTitle">معلومات معد التقرير</span></h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                        <label class="block mb-2 font-semibold" data-lang-key="engineerNameLabel">اسم المهندس *</label>
+                        <input type="text" id="engineer-name" class="form-input" data-lang-placeholder="engineerNamePlaceholder">
+                    </div>
+                    <div>
+                        <label class="block mb-2 font-semibold" data-lang-key="emailLabel">البريد الإلكتروني</label>
+                        <input type="email" id="engineer-email" placeholder="engineer@example.com" class="form-input">
+                    </div>
+                    <div>
+                        <label class="block mb-2 font-semibold" data-lang-key="phoneLabel">رقم الهاتف (اختياري)</label>
+                        <input type="tel" id="engineer-phone" placeholder="+966 50 123 4567" class="form-input">
+                    </div>
+                </div>
+            </div>
+
+            <div class="card" style="animation-delay: 0.9s;" id="save-card">
+                <div class="flex flex-col md:flex-row gap-4 justify-center">
+                     <button id="save-data-btn" class="btn btn-save-data flex-1">
+                        <i class="fas fa-save"></i> <span data-lang-key="saveBtn">حفظ التقرير</span>
+                    </button>
+                    <button id="export-pdf-btn" class="btn btn-export flex-1">
+                        <i class="fas fa-file-pdf"></i> <span data-lang-key="exportBtn">تصدير PDF</span>
+                    </button>
+                     <button id="upload-drive-btn" class="btn btn-upload flex-1" disabled>
+                        <i class="fas fa-cloud-upload-alt"></i> <span data-lang-key="uploadBtn">رفع إلى Drive</span>
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <div class="fixed bottom-6 right-6 z-50">
+            <button id="next-day-btn" class="nav-btn">
+                <i class="fas fa-arrow-right"></i>
+            </button>
+        </div>
+        <div class="fixed bottom-6 left-6 z-50">
+            <button id="prev-day-btn" class="nav-btn">
+                <i class="fas fa-arrow-left"></i>
+            </button>
+        </div>
+
+        <div id="pdf-print-area" style="display: none;"></div>
+        <div id="message-box"></div>
+    </div>
+
+    <script>
+        // --- GOOGLE DRIVE API SETUP (GLOBAL SCOPE)---
+        const API_KEY = 'AIzaSyAJkD9CqntAwLbjChfcj5cBBLQRhjLOrC0'; 
+        const CLIENT_ID = '298093365843-2b07bnma9jmeqj3f7l6ap7tnqc35upqs6f5.apps.googleusercontent.com';
+        
+        const SCOPES = 'https://www.googleapis.com/auth/drive.file';
+        let tokenClient;
+        let gapiInited = false;
+        let gisInited = false;
+
+        function gapiLoaded() {
+            gapi.load('client', initializeGapiClient);
+        }
+
+        async function initializeGapiClient() {
+            await gapi.client.init({
+                apiKey: API_KEY,
+                discoveryDocs: ['https://www.googleapis.com/discovery/v1/apis/drive/v3/rest'],
+            });
+            gapiInited = true;
+            maybeEnableAuthButtons();
+        }
+
+        function gisLoaded() {
+            tokenClient = google.accounts.oauth2.initTokenClient({
+                client_id: CLIENT_ID,
+                scope: SCOPES,
+                callback: '',
+            });
+            gisInited = true;
+            maybeEnableAuthButtons();
+        }
+
+        function maybeEnableAuthButtons() {
+            if (gapiInited && gisInited) {
+                const authBtn = document.getElementById('auth-btn');
+                if(authBtn) authBtn.style.visibility = 'visible';
+            }
+        }
+
+        function handleAuthClick() {
+             if (!gapiInited || !gisInited) {
+                console.error("GAPI or GIS not initialized yet.");
+                return;
+            }
+            tokenClient.callback = async (resp) => {
+                if (resp.error !== undefined) {
+                    throw (resp);
+                }
+                updateUiOnLogin();
+            };
+
+            if (gapi.client.getToken() === null) {
+                tokenClient.requestAccessToken({prompt: 'consent'});
+            } else {
+                tokenClient.requestAccessToken({prompt: ''});
+            }
+        }
+
+        function handleSignoutClick() {
+            const token = gapi.client.getToken();
+            if (token !== null) {
+                google.accounts.oauth2.revoke(token.access_token);
+                gapi.client.setToken('');
+                updateUiOnLogout();
+            }
+        }
+
+        function updateUiOnLogin() {
+            document.getElementById('auth-btn').style.display = 'none';
+            const userInfoDiv = document.getElementById('user-info');
+            userInfoDiv.style.display = 'flex';
+            document.getElementById('upload-drive-btn').disabled = false;
+
+            gapi.client.oauth2.userinfo.get().then(response => {
+                const user = response.result;
+                document.getElementById('user-name').textContent = user.name;
+                document.getElementById('user-pic').src = user.picture;
+            });
+        }
+
+        function updateUiOnLogout() {
+             document.getElementById('auth-btn').style.display = 'block';
+             document.getElementById('user-info').style.display = 'none';
+             document.getElementById('upload-drive-btn').disabled = true;
+        }
+
+        // --- MAIN APP SCRIPT ---
+        document.addEventListener('DOMContentLoaded', () => {
+            const langToggleButton = document.getElementById('lang-toggle');
+            const reportDateInput = document.getElementById('report-date');
+            const today = new Date();
+            const todayString = today.toISOString().split('T')[0];
+            
+            reportDateInput.max = todayString;
+
+            const elements = {
+                projectName: document.getElementById('project-name'),
+                reportDate: reportDateInput,
+                weatherStatus: document.getElementById('weather-status'),
+                plannedProgress: document.getElementById('planned-progress'),
+                actualProgress: document.getElementById('actual-progress'),
+                qualityProgress: document.getElementById('quality-progress'),
+                plannedValue: document.getElementById('planned-progress-value'),
+                actualValue: document.getElementById('actual-progress-value'),
+                qualityValue: document.getElementById('quality-progress-value'),
+                deviation: document.getElementById('deviation'),
+                previousDayTasksContainer: document.getElementById('previous-day-tasks'),
+                completedWorkList: document.getElementById('completed-work-list'),
+                workforceList: document.getElementById('workforce-list'),
+                equipmentList: document.getElementById('equipment-list'),
+                planList: document.getElementById('plan-list'),
+                engineerName: document.getElementById('engineer-name'),
+                engineerEmail: document.getElementById('engineer-email'),
+                engineerPhone: document.getElementById('engineer-phone'),
+                saveDataButton: document.getElementById('save-data-btn'),
+                exportPdfButton: document.getElementById('export-pdf-btn'),
+                uploadDriveButton: document.getElementById('upload-drive-btn'),
+                messageBox: document.getElementById('message-box'),
+                prevDayBtn: document.getElementById('prev-day-btn'),
+                nextDayBtn: document.getElementById('next-day-btn'),
+                pdfPrintArea: document.getElementById('pdf-print-area'),
+                authButton: document.getElementById('auth-btn'),
+                signOutButton: document.getElementById('signout-btn'),
+            };
+
+            elements.authButton.addEventListener('click', handleAuthClick);
+            elements.signOutButton.addEventListener('click', handleSignoutClick);
+            
+            const translations = {
+                ar: {
+                    mainTitle: 'التقرير اليومي للمشروع', mainSubtitle: 'واجهة تفاعلية لإدارة التقارير اليومية',
+                    basicInfoTitle: 'المعلومات الأساسية', projectNameLabel: 'اسم المشروع *', reportDateLabel: 'بحث حسب التاريخ *',
+                    weatherLabel: 'الحالة الجوية *', weatherSunny: 'مشمس', weatherPartlyCloudy: 'غائم جزئياً', weatherCloudy: 'غائم', weatherRainy: 'ممطر',
+                    progressTitle: 'ملخص الإنجاز', plannedProgressLabel: 'النسبة المخططة', actualProgressLabel: 'النسبة الفعلية', qualityProgressLabel: 'نسبة الجودة',
+                    deviationLabel: 'الانحراف عن المخطط:', prevDayTitle: 'مراجعة أعمال اليوم السابق', completedWorkTitle: 'الأعمال المنجزة',
+                    workforceTitle: 'القوى العاملة', equipmentTitle: 'المعدات', planTitle: 'خطة الغد', preparerTitle: 'معلومات معد التقرير',
+                    engineerNameLabel: 'اسم المهندس *', engineerNamePlaceholder: 'أدخل اسم المهندس', emailLabel: 'البريد الإلكتروني', phoneLabel: 'رقم الهاتف (اختياري)',
+                    addBtn: 'إضافة', saveBtn: 'حفظ التقرير', exportBtn: 'تصدير PDF', uploadBtn: 'رفع إلى Drive',
+                    completed: 'المكتمل', noTasks: 'لا توجد مهام مرحّلة من اليوم السابق.', taskDescPlaceholder: 'وصف العمل المنجز',
+                    locationPlaceholder: 'الموقع', workforceCatPlaceholder: 'الفئة (عامل، نجار)', workforceCountPlaceholder: 'العدد',
+                    equipmentTypePlaceholder: 'نوع المعدة', equipmentNamePlaceholder: 'اسم/كود المعدة', planTaskPlaceholder: 'الأعمال المتوقعة',
+                    planReqPlaceholder: 'المتطلبات', notesPlaceholder: 'ملاحظات (اختياري)', statusCompleted: 'مكتمل', statusInProgress: 'قيد التنفيذ',
+                    statusDelayed: 'متأخر', saveSuccess: 'تم حفظ التقرير بنجاح!', exportingPDF: 'جاري تصدير PDF...', exportSuccess: 'تم التصدير بنجاح!',
+                    uploadingToDrive: 'جاري الرفع إلى Google Drive...', uploadSuccess: 'تم الرفع بنجاح!', uploadError: 'فشل الرفع إلى Drive',
+                    fillRequired: 'يرجى ملء الحقول الإلزامية!', pdfReportTitle: 'تقرير مشروع', pdfWeather: 'الطقس', pdfTask: 'المهمة', pdfStatus: 'الحالة',
+                    pdfNotes: 'ملاحظات', pdfDescription: 'الوصف', pdfLocation: 'الموقع', pdfCategory: 'الفئة', pdfCount: 'العدد',
+                    pdfType: 'النوع', pdfNameCode: 'الاسم/الكود', pdfExpectedWork: 'الأعمال المتوقعة', pdfRequirements: 'المتطلبات',
+                    pdfName: 'الاسم', pdfEmail: 'البريد', pdfPhone: 'الهاتف', pdfNoData: 'لا توجد بيانات مسجلة.', signIn: 'تسجيل الدخول', signOut: 'تسجيل الخروج'
+                },
+                en: {
+                    mainTitle: 'Project Daily Report', mainSubtitle: 'Interactive interface for managing daily reports',
+                    basicInfoTitle: 'Basic Information', projectNameLabel: 'Project Name *', reportDateLabel: 'Search by Date *',
+                    weatherLabel: 'Weather Condition *', weatherSunny: 'Sunny', weatherPartlyCloudy: 'Partly Cloudy', weatherCloudy: 'Cloudy', weatherRainy: 'Rainy',
+                    progressTitle: 'Progress Summary', plannedProgressLabel: 'Planned Progress', actualProgressLabel: 'Actual Progress', qualityProgressLabel: 'Quality Progress',
+                    deviationLabel: 'Deviation from Plan:', prevDayTitle: 'Previous Day\'s Work Review', completedWorkTitle: 'Completed Work',
+                    workforceTitle: 'Workforce', equipmentTitle: 'Equipment', planTitle: 'Tomorrow\'s Plan', preparerTitle: 'Preparer Information',
+                    engineerNameLabel: 'Engineer Name *', engineerNamePlaceholder: 'Enter engineer name', emailLabel: 'Email', phoneLabel: 'Phone (Optional)',
+                    addBtn: 'Add', saveBtn: 'Save Report', exportBtn: 'Export PDF', uploadBtn: 'Upload to Drive',
+                    completed: 'Completed', noTasks: 'No tasks carried over from the previous day.', taskDescPlaceholder: 'Description of completed work',
+                    locationPlaceholder: 'Location', workforceCatPlaceholder: 'Category (e.g., Laborer)', workforceCountPlaceholder: 'Count',
+                    equipmentTypePlaceholder: 'Equipment Type', equipmentNamePlaceholder: 'Equipment Name/Code', planTaskPlaceholder: 'Expected Work',
+                    planReqPlaceholder: 'Requirements', notesPlaceholder: 'Notes (Optional)', statusCompleted: 'Completed', statusInProgress: 'In Progress',
+                    statusDelayed: 'Delayed', saveSuccess: 'Report saved successfully!', exportingPDF: 'Exporting PDF...', exportSuccess: 'Exported successfully!',
+                    uploadingToDrive: 'Uploading to Google Drive...', uploadSuccess: 'Uploaded successfully!', uploadError: 'Upload to Drive failed',
+                    fillRequired: 'Please fill in the required fields!', pdfReportTitle: 'Project Report', pdfWeather: 'Weather', pdfTask: 'Task',
+                    pdfStatus: 'Status', pdfNotes: 'Notes', pdfDescription: 'Description', pdfLocation: 'Location', pdfCategory: 'Category',
+                    pdfCount: 'Count', pdfType: 'Type', pdfNameCode: 'Name/Code', pdfExpectedWork: 'Expected Work', pdfRequirements: 'Requirements',
+                    pdfName: 'Name', pdfEmail: 'Email', pdfPhone: 'Phone', pdfNoData: 'No data recorded.', signIn: 'Sign in with Google', signOut: 'Sign Out'
+                }
+            };
+
+            let currentLang = 'ar';
+
+            function setLanguage(lang) {
+                currentLang = lang;
+                const direction = lang === 'ar' ? 'rtl' : 'ltr';
+                document.documentElement.lang = lang;
+                document.documentElement.dir = direction;
+                
+                document.querySelectorAll('[data-lang-key]').forEach(el => {
+                    const key = el.dataset.langKey;
+                    if (translations[lang][key]) {
+                        el.textContent = translations[lang][key];
+                    }
+                });
+
+                document.querySelectorAll('[data-lang-placeholder]').forEach(el => {
+                    const key = el.dataset.langPlaceholder;
+                    if (translations[lang][key]) {
+                        el.placeholder = translations[lang][key];
+                    }
+                });
+
+                updatePreviousDayCounter();
+                if (elements.reportDate.value) {
+                    loadCumulativePreviousTasks(elements.reportDate.value);
+                }
+
+                localStorage.setItem('preferredLanguage', lang);
+            }
+            
+            if (langToggleButton) {
+                langToggleButton.addEventListener('click', () => {
+                    const newLang = currentLang === 'ar' ? 'en' : 'ar';
+                    setLanguage(newLang);
+                });
+            }
+
+            const formatDate = (date) => {
+                if (!date || isNaN(date.getTime())) {
+                    return '';
+                }
+                return date.toISOString().split('T')[0];
+            }
+
+            function updateProgress() {
+                elements.plannedValue.textContent = `${elements.plannedProgress.value}%`;
+                elements.actualValue.textContent = `${elements.actualProgress.value}%`;
+                elements.qualityValue.textContent = `${elements.qualityProgress.value}%`;
+                const dev = elements.actualProgress.value - elements.plannedProgress.value;
+                elements.deviation.textContent = `${dev}%`;
+                elements.deviation.className = 'font-bold text-2xl ';
+                if (dev < 0) elements.deviation.classList.add('text-red-400');
+                else if (dev > 0) elements.deviation.classList.add('text-green-400');
+                else elements.deviation.classList.add('text-gray-400');
+            }
+            [elements.plannedProgress, elements.actualProgress, elements.qualityProgress].forEach(slider => {
+                slider.addEventListener('input', updateProgress);
+            });
+
+            function createRow(container, content, data = null) {
+                const div = document.createElement('div');
+                div.className = 'grid grid-cols-12 gap-3 items-center new-row';
+                div.innerHTML = content;
+                container.appendChild(div);
+
+                if (data) {
+                    Object.keys(data).forEach(key => {
+                        const input = div.querySelector(`[class*="data-${key}"]`);
+                        if (input) input.value = data[key];
+                    });
+                }
+                
+                div.querySelector('.delete-row-btn').addEventListener('click', () => {
+                    div.style.animation = 'slideUpFadeOut 0.5s ease-out forwards';
+                    div.addEventListener('animationend', () => div.remove());
+                });
+                return div;
+            }
+            
+            function getRowTemplates(lang) {
+                return {
+                    completedWork: `
+                        <div class="col-span-6"><input type="text" placeholder="${translations[lang].taskDescPlaceholder}" class="form-input data-completed-desc"></div>
+                        <div class="col-span-3"><input type="text" placeholder="${translations[lang].locationPlaceholder}" class="form-input data-completed-loc"></div>
+                        <div class="col-span-2"><select class="form-select data-completed-status"><option>${translations[lang].statusCompleted}</option><option>${translations[lang].statusInProgress}</option><option>${translations[lang].statusDelayed}</option></select></div>
+                        <div class="col-span-1 text-center"><button class="btn btn-delete delete-row-btn"><i class="fas fa-trash"></i></button></div>`,
+                    workforce: `
+                        <div class="col-span-5"><input type="text" placeholder="${translations[lang].workforceCatPlaceholder}" class="form-input data-workforce-cat"></div>
+                        <div class="col-span-5"><input type="number" placeholder="${translations[lang].workforceCountPlaceholder}" class="form-input data-workforce-count"></div>
+                        <div class="col-span-2 text-center"><button class="btn btn-delete delete-row-btn"><i class="fas fa-trash"></i></button></div>`,
+                    equipment: `
+                        <div class="col-span-5"><input type="text" placeholder="${translations[lang].equipmentTypePlaceholder}" class="form-input data-equipment-type"></div>
+                        <div class="col-span-5"><input type="text" placeholder="${translations[lang].equipmentNamePlaceholder}" class="form-input data-equipment-name"></div>
+                        <div class="col-span-2 text-center"><button class="btn btn-delete delete-row-btn"><i class="fas fa-trash"></i></button></div>`,
+                    plan: `
+                        <div class="col-span-5"><input type="text" placeholder="${translations[lang].planTaskPlaceholder}" class="form-input data-plan-task"></div>
+                        <div class="col-span-5"><input type="text" placeholder="${translations[lang].planReqPlaceholder}" class="form-input data-plan-req"></div>
+                        <div class="col-span-2 text-center"><button class="btn btn-delete delete-row-btn"><i class="fas fa-trash"></i></button></div>`
+                };
+            }
+            
+            document.getElementById('add-completed-work').addEventListener('click', () => createRow(elements.completedWorkList, getRowTemplates(currentLang).completedWork));
+            document.getElementById('add-workforce').addEventListener('click', () => createRow(elements.workforceList, getRowTemplates(currentLang).workforce));
+            document.getElementById('add-equipment').addEventListener('click', () => createRow(elements.equipmentList, getRowTemplates(currentLang).equipment));
+            document.getElementById('add-plan').addEventListener('click', () => createRow(elements.planList, getRowTemplates(currentLang).plan));
+
+            function getListData(container, fields) {
+                return Array.from(container.children).map(row => {
+                    const item = {};
+                    fields.forEach(field => {
+                        const element = row.querySelector(`.data-${field.key}`);
+                        if (element) item[field.name] = element.value;
+                    });
+                    return item;
+                });
+            }
+
+            function clearForm() {
+                elements.projectName.value = 'FCC';
+                elements.weatherStatus.value = currentLang === 'ar' ? 'مشمس' : 'Sunny';
+                ['plannedProgress', 'actualProgress', 'qualityProgress'].forEach(p => elements[p].value = 0);
+                ['completedWorkList', 'workforceList', 'equipmentList', 'planList'].forEach(list => elements[list].innerHTML = '');
+                elements.engineerName.value = '';
+                elements.engineerEmail.value = '';
+                elements.engineerPhone.value = '';
+                updateProgress();
+            }
+
+            function loadReportData(dateString) {
+                const reportData = JSON.parse(localStorage.getItem(`dailyReport_${dateString}`));
+                clearForm();
+
+                if (reportData) {
+                    elements.projectName.value = reportData.projectName;
+                    elements.weatherStatus.value = reportData.weather;
+                    elements.plannedProgress.value = reportData.progress.planned;
+                    elements.actualProgress.value = reportData.progress.actual;
+                    elements.qualityProgress.value = reportData.progress.quality;
+                    updateProgress();
+                    
+                    reportData.completedWork.forEach(item => createRow(elements.completedWorkList, getRowTemplates(currentLang).completedWork, {'completed-desc': item.description, 'completed-loc': item.location, 'completed-status': item.status}));
+                    reportData.workforce.forEach(item => createRow(elements.workforceList, getRowTemplates(currentLang).workforce, {'workforce-cat': item.category, 'workforce-count': item.count}));
+                    reportData.equipment.forEach(item => createRow(elements.equipmentList, getRowTemplates(currentLang).equipment, {'equipment-type': item.type, 'equipment-name': item.name}));
+                    reportData.tomorrowPlan.forEach(item => createRow(elements.planList, getRowTemplates(currentLang).plan, {'plan-task': item.task, 'plan-req': item.requirements}));
+
+                    elements.engineerName.value = reportData.engineer.name;
+                    elements.engineerEmail.value = reportData.engineer.email;
+                    elements.engineerPhone.value = reportData.engineer.phone;
+                }
+                loadCumulativePreviousTasks(dateString);
+            }
+
+            function loadCumulativePreviousTasks(currentDateString) {
+                const container = elements.previousDayTasksContainer;
+                container.innerHTML = '';
+                const yesterday = new Date(currentDateString);
+                if (isNaN(yesterday.getTime())) return;
+
+                yesterday.setDate(yesterday.getDate() - 1);
+                const yesterdayString = formatDate(yesterday);
+
+                const data = localStorage.getItem(`dailyReport_${yesterdayString}`);
+                const tasksToCarryOver = new Map();
+
+                if (data) {
+                    const prevReport = JSON.parse(data);
+                    if(prevReport.previousTasks) {
+                        prevReport.previousTasks.forEach(task => {
+                            if (!task.completed) {
+                                tasksToCarryOver.set(task.task, { task: task.task, notes: task.notes });
+                            }
+                        });
+                    }
+                    if(prevReport.tomorrowPlan) {
+                        prevReport.tomorrowPlan.forEach(plan => {
+                            tasksToCarryOver.set(plan.task, { task: plan.task, notes: '' });
+                        });
+                    }
+                }
+                
+                if (tasksToCarryOver.size > 0) {
+                    tasksToCarryOver.forEach(task => {
+                        const div = document.createElement('div');
+                        div.className = 'grid grid-cols-12 gap-3 items-center new-row task-row p-3 bg-gray-900 rounded-lg';
+                        div.innerHTML = `
+                            <div class="col-span-1 flex items-center justify-center">
+                                <input type="checkbox" class="form-checkbox task-checkbox">
+                            </div>
+                            <div class="col-span-5 font-semibold task-description">${task.task}</div>
+                            <div class="col-span-6"><input type="text" value="${task.notes || ''}" placeholder="${translations[currentLang].notesPlaceholder}" class="form-input text-sm task-notes"></div>
+                        `;
+                        container.appendChild(div);
+                    });
+                } else {
+                    container.innerHTML = `<p class="text-gray-400" data-lang-key="noTasks">${translations[currentLang].noTasks}</p>`;
+                }
+                updatePreviousDayCounter();
+            }
+
+            function updatePreviousDayCounter() {
+                 const totalTasks = elements.previousDayTasksContainer.querySelectorAll('.task-row').length;
+                 const completedTasks = elements.previousDayTasksContainer.querySelectorAll('.task-checkbox:checked').length;
+                 document.getElementById('previous-day-counter').textContent = `${translations[currentLang].completed}: ${completedTasks}/${totalTasks}`;
+            }
+            elements.previousDayTasksContainer.addEventListener('change', (e) => {
+                if(e.target.classList.contains('task-checkbox')) {
+                    updatePreviousDayCounter();
+                }
+            });
+            
+            function generatePdfContent(container, data, lang) {
+                const tr = translations[lang];
+                const headerImgSrc = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAABlCAYAAADWHH3AAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAA5hSURBVHhe7d1tVFRVGYDx5947C5dFEG9REO+CCwgUUREFwQhGhRjjA0YXRnxA8EGNERcTEx/8gIkoJmqMiSgGURCMiKJjQFcMFhR1V1AUV1AEcVfcBTe4t7S0n9Pn1d29l7q0tL176p5zft5J6enTqXvqvfN8T9065+fn+zQa/S/t7u6mra2NhoeH6fHxUb29vVRcXKy+vr4eHR3l2d4DAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-IrLF7QnIg==";
+                const footerImgSrc = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAA4QAAABFCAYAAADGr/3ZAAAAAXNSR0IArs4c6QAAAARnQU1BAACxjwv8YQUAAAAJcEhZcwAADsMAAA7DAcdvqGQAAAe6SURBVHhe7d1BTttAFIXh9/8/uhCFp3gSEEgVqCCwQVAQCm0sWFnggIFSFqCALQgkUaAECiSAgOwDBQcLDy3Lq9v1Xulh6Sgv/2+3t/Pe7/Uj/V6v/7e3t/fT0tKSzs7O+vHx8Z8uX74cWUpLS2loaIhv/0YAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-IrLF7QnIg==";
+                
+                let html = `<div style="direction: ${lang === 'ar' ? 'rtl' : 'ltr'}; font-family: 'Cairo', sans-serif; width: 210mm; background: white; margin: auto;">`;
+                html += `<img src="${headerImgSrc}" style="width: 100%; display: block;" />`;
+                html += `<div style="padding: 0 25px;">`;
+
+                html += `<h1 style="text-align: center; color: #1e293b; font-size: 20px; font-weight: bold; margin-top: 20px;">${tr.pdfReportTitle} ${data.projectName} - ${data.reportDate}</h1>`;
+                html += `<p style="text-align: center; color: #475569; font-size: 15px;">${tr.pdfWeather}: ${data.weather}</p><div style="height: 1px; background-color: #e2e8f0; margin: 20px 0;"></div>`;
+
+                const createSection = (title, content) => `
+                    <div style="margin-bottom: 20px; page-break-inside: avoid;">
+                        <h2 style="font-size: 16px; color: #1e3a8a; border-bottom: 2px solid #bfdbfe; padding-bottom: 6px; margin-bottom: 10px; font-weight: bold;">${title}</h2>
+                        ${content}
+                    </div>
+                `;
+                const createTable = (headers, rows) => {
+                    if (rows.length === 0) return `<p style="color: #64748b; font-size: 13px;">${tr.pdfNoData}</p>`;
+                    return `
+                        <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+                            <thead><tr style="background-color: #f1f5f9;">
+                                ${headers.map(h => `<th style="padding: 8px; border: 1px solid #cbd5e1; text-align: ${lang === 'ar' ? 'right' : 'left'}; color: #1e293b; font-weight: 600;">${h}</th>`).join('')}
+                            </tr></thead>
+                            <tbody>
+                                ${rows.map((row, index) => `
+                                    <tr style="background-color: ${index % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                                        ${row.map(cell => `<td style="padding: 8px; border: 1px solid #e2e8f0; color: #334155;">${cell || '-'}</td>`).join('')}
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>`;
+                };
+
+                const progressDivs = `<div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; color: #334155; font-size: 14px;">
+                    <p style="background-color:#f0f9ff; padding:8px; border-radius: 6px;"><strong>${tr.plannedProgressLabel}:</strong> ${data.progress.planned}%</p>
+                    <p style="background-color:#f0fdf4; padding:8px; border-radius: 6px;"><strong>${tr.actualProgressLabel}:</strong> ${data.progress.actual}%</p>
+                    <p style="background-color:#fefce8; padding:8px; border-radius: 6px;"><strong>${tr.qualityProgressLabel}:</strong> ${data.progress.quality}%</p>
+                    <p style="background-color:#fef2f2; padding:8px; border-radius: 6px;"><strong>${tr.deviationLabel}:</strong> ${data.progress.actual - data.progress.planned}%</p>
+                </div>`;
+                html += createSection(tr.progressTitle, progressDivs);
+                html += createSection(tr.prevDayTitle, createTable([tr.pdfTask, tr.pdfStatus, tr.pdfNotes], data.previousTasks.map(t => [t.task, t.completed ? `✔ ${tr.statusCompleted}` : `❌ ${lang === 'ar' ? 'غير مكتمل' : 'Not Completed'}`, t.notes])));
+                html += createSection(tr.completedWorkTitle, createTable([tr.pdfDescription, tr.pdfLocation, tr.pdfStatus], data.completedWork.map(w => [w.description, w.location, w.status])));
+                html += createSection(tr.workforceTitle, createTable([tr.pdfCategory, tr.pdfCount], data.workforce.map(w => [w.category, w.count])));
+                html += createSection(tr.equipmentTitle, createTable([tr.pdfType, tr.pdfNameCode], data.equipment.map(e => [e.type, e.name])));
+                html += createSection(tr.planTitle, createTable([tr.pdfExpectedWork, tr.pdfRequirements], data.tomorrowPlan.map(p => [p.task, p.requirements])));
+                html += createSection(tr.preparerTitle, `<p style="color: #334155; font-size: 14px;"><strong>${tr.pdfName}:</strong> ${data.engineer.name} | <strong>${tr.pdfEmail}:</strong> ${data.engineer.email || '-'} | <strong>${tr.pdfPhone}:</strong> ${data.engineer.phone || '-'}</p>`);
+                
+                html += `</div>`;
+                html += `<div style="width: 100%;"><img src="${footerImgSrc}" style="width: 100%; display: block; margin-top: auto;" /></div>`;
+                html += `</div>`;
+
+                container.innerHTML = html;
+            }
+
+            function saveData() {
+                if (!elements.reportDate.value || !elements.engineerName.value || !elements.projectName.value) {
+                    elements.messageBox.textContent = translations[currentLang].fillRequired;
+                    elements.messageBox.style.backgroundColor = '#da3633';
+                    elements.messageBox.classList.add('show');
+                    setTimeout(() => elements.messageBox.classList.remove('show'), 3000);
+                    return null;
+                }
+                const reportData = {
+                    projectName: elements.projectName.value, reportDate: elements.reportDate.value, weather: elements.weatherStatus.value,
+                    progress: { planned: elements.plannedProgress.value, actual: elements.actualProgress.value, quality: elements.qualityProgress.value },
+                    previousTasks: Array.from(elements.previousDayTasksContainer.querySelectorAll('.task-row')).map(row => ({ task: row.querySelector('.task-description').textContent, completed: row.querySelector('.task-checkbox').checked, notes: row.querySelector('.task-notes').value })),
+                    completedWork: getListData(elements.completedWorkList, [ {key: 'completed-desc', name: 'description'}, {key: 'completed-loc', name: 'location'}, {key: 'completed-status', name: 'status'} ]),
+                    workforce: getListData(elements.workforceList, [ {key: 'workforce-cat', name: 'category'}, {key: 'workforce-count', name: 'count'} ]),
+                    equipment: getListData(elements.equipmentList, [ {key: 'equipment-type', name: 'type'}, {key: 'equipment-name', name: 'name'} ]),
+                    tomorrowPlan: getListData(elements.planList, [ {key: 'plan-task', name: 'task'}, {key: 'plan-req', name: 'requirements'} ]),
+                    engineer: { name: elements.engineerName.value, email: elements.engineerEmail.value, phone: elements.engineerPhone.value }
+                };
+                localStorage.setItem(`dailyReport_${reportData.reportDate}`, JSON.stringify(reportData));
+                elements.messageBox.textContent = translations[currentLang].saveSuccess;
+                elements.messageBox.style.backgroundColor = '#2ea043';
+                elements.messageBox.classList.add('show');
+                setTimeout(() => elements.messageBox.classList.remove('show'), 2000);
+                return reportData;
+            }
+
+            elements.saveDataButton.addEventListener('click', saveData);
+
+            elements.exportPdfButton.addEventListener('click', () => {
+                const reportData = saveData();
+                if (reportData) {
+                    elements.messageBox.textContent = translations[currentLang].exportingPDF;
+                    elements.messageBox.style.backgroundColor = '#58a6ff';
+                    elements.messageBox.classList.add('show');
+                    
+                    generatePdfContent(elements.pdfPrintArea, reportData, currentLang);
+                    
+                    const elementToPrint = elements.pdfPrintArea.children[0];
+                    const options = { 
+                        margin: 0, 
+                        filename: `Report_${reportData.projectName}_${reportData.reportDate}.pdf`, 
+                        image: { type: 'jpeg', quality: 0.98 }, 
+                        html2canvas: { scale: 2, useCORS: true, letterRendering: true }, 
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+                    };
+                    
+                    html2pdf().from(elementToPrint).set(options).save().then(() => {
+                        elements.messageBox.textContent = translations[currentLang].exportSuccess;
+                        elements.messageBox.style.backgroundColor = '#2ea043';
+                        setTimeout(() => elements.messageBox.classList.remove('show'), 2000);
+                    });
+                }
+            });
+
+            async function uploadToDrive(pdfBlob, fileName) {
+                const folderName = currentLang === 'ar' ? 'تقارير المشروع' : 'Project Reports';
+                
+                try {
+                    const searchResponse = await gapi.client.drive.files.list({
+                        q: `mimeType='application/vnd.google-apps.folder' and name='${folderName}' and trashed=false`,
+                        fields: 'files(id)',
+                    });
+                    
+                    let folderId;
+                    if (searchResponse.result.files.length > 0) {
+                        folderId = searchResponse.result.files[0].id;
+                    } else {
+                        const createResponse = await gapi.client.drive.files.create({
+                            resource: {
+                                name: folderName,
+                                mimeType: 'application/vnd.google-apps.folder',
+                            },
+                            fields: 'id',
+                        });
+                        folderId = createResponse.result.id;
+                    }
+
+                    const metadata = {
+                        name: fileName,
+                        parents: [folderId]
+                    };
+                    
+                    const form = new FormData();
+                    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+                    form.append('file', pdfBlob);
+
+                    const uploadResponse = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart', {
+                        method: 'POST',
+                        headers: new Headers({ 'Authorization': 'Bearer ' + gapi.client.getToken().access_token }),
+                        body: form,
+                    });
+                    
+                    if (uploadResponse.ok) {
+                        elements.messageBox.textContent = translations[currentLang].uploadSuccess;
+                        elements.messageBox.style.backgroundColor = '#2ea043';
+                    } else {
+                        throw new Error('Upload failed');
+                    }
+
+                } catch (error) {
+                    console.error(error);
+                    elements.messageBox.textContent = translations[currentLang].uploadError;
+                    elements.messageBox.style.backgroundColor = '#da3633';
+                } finally {
+                    elements.messageBox.classList.add('show');
+                    setTimeout(() => elements.messageBox.classList.remove('show'), 3000);
+                }
+            }
+
+
+            elements.uploadDriveButton.addEventListener('click', () => {
+                 const reportData = saveData();
+                if (reportData) {
+                    elements.messageBox.textContent = translations[currentLang].uploadingToDrive;
+                    elements.messageBox.style.backgroundColor = '#58a6ff';
+                    elements.messageBox.classList.add('show');
+                    
+                    generatePdfContent(elements.pdfPrintArea, reportData, currentLang);
+                    const elementToPrint = elements.pdfPrintArea.children[0];
+                    const options = { 
+                        margin: 0, 
+                        image: { type: 'jpeg', quality: 0.98 }, 
+                        html2canvas: { scale: 2, useCORS: true, letterRendering: true }, 
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' } 
+                    };
+                    
+                    html2pdf().from(elementToPrint).set(options).output('blob').then((blob) => {
+                        const fileName = `Report_${reportData.projectName}_${reportData.reportDate}.pdf`;
+                        uploadToDrive(blob, fileName);
+                    });
+                }
+            });
+            
+            function updateNavButtons(currentDateStr) {
+                const currentDate = new Date(currentDateStr);
+                elements.nextDayBtn.disabled = (currentDate >= today);
+            }
+
+            function navigateDays(offset) {
+                const currentDate = new Date(elements.reportDate.value);
+                currentDate.setDate(currentDate.getDate() + offset);
+                const newDateStr = formatDate(currentDate);
+                if (currentDate <= today) {
+                    elements.reportDate.value = newDateStr;
+                    elements.reportDate.dispatchEvent(new Event('change'));
+                }
+            }
+
+            elements.prevDayBtn.addEventListener('click', () => navigateDays(-1));
+            elements.nextDayBtn.addEventListener('click', () => navigateDays(1));
+            elements.reportDate.addEventListener('change', (e) => {
+                loadReportData(e.target.value);
+                updateNavButtons(e.target.value);
+            });
+
+            // --- INITIAL LOAD ---
+            setTimeout(() => {
+                document.getElementById('splash-screen').style.display = 'none';
+                document.getElementById('app-container').style.display = 'block';
+
+                const savedLang = localStorage.getItem('preferredLanguage') || 'ar';
+                elements.reportDate.value = todayString;
+                setLanguage(savedLang); 
+                loadReportData(todayString);
+                updateNavButtons(todayString);
+            }, 3000);
+        });
+    </script>
+</body>
+</html>
+
